@@ -12,7 +12,7 @@ HappyMonitor transforms the existing WorldMonitor codebase into an optimistic co
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Variant Shell & Visual Foundation** - Register happy variant, warm theme, basemap, typography, and positive color system
+- [x] **Phase 1: Variant Shell & Visual Foundation** - Register happy variant, warm theme, basemap, typography, and positive color system
 - [ ] **Phase 2: Curated Content Pipeline** - Integrate positive news RSS feeds, GDELT tone filter, and content category definitions
 - [ ] **Phase 3: Positive News Feed & Quality Pipeline** - First visible panel: scrolling positive news with category filtering, ML sentiment gate, and multi-stage quality pipeline
 - [ ] **Phase 4: Global Map & Positive Events** - Interactive map with geocoded positive events and live kindness layer
@@ -37,9 +37,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Variant registration, build scripts, metadata, favicons (INFRA-01, INFRA-02, INFRA-03)
-- [ ] 01-02-PLAN.md -- Warm CSS theme, typography, semantic colors (THEME-01, THEME-03, THEME-04)
-- [ ] 01-03-PLAN.md -- Map basemap styles, panel chrome, UI polish + visual verification (THEME-02, THEME-05)
+- [x] 01-01-PLAN.md -- Variant registration, build scripts, metadata, favicons (INFRA-01, INFRA-02, INFRA-03)
+- [x] 01-02-PLAN.md -- Warm CSS theme, typography, semantic colors (THEME-01, THEME-03, THEME-04)
+- [x] 01-03-PLAN.md -- Map basemap styles, panel chrome, UI polish + visual verification (THEME-02, THEME-05)
 
 ### Phase 2: Curated Content Pipeline
 **Goal**: The happy variant has a steady stream of positive news content flowing in from dedicated curated sources and GDELT positive tone filtering
@@ -175,7 +175,7 @@ Note: Phases 4, 5, 6, 7 can partially parallelize after Phase 2 completes (they 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Variant Shell & Visual Foundation | 0/3 | Not started | - |
+| 1. Variant Shell & Visual Foundation | 3/3 | Complete | 2026-02-22 |
 | 2. Curated Content Pipeline | 0/2 | Not started | - |
 | 3. Positive News Feed & Quality Pipeline | 0/3 | Not started | - |
 | 4. Global Map & Positive Events | 0/2 | Not started | - |
