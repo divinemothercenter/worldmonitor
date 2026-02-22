@@ -4,8 +4,8 @@
    ============================================================ */
 
 /* ---------- Happy Light Mode (default) ---------- */
-[data-variant="happy"],
-[data-variant="happy"][data-theme="light"] {
+:root[data-variant="happy"],
+:root[data-variant="happy"][data-theme="light"] {
   /* Backgrounds */
   --bg: #FAFAF5;
   --bg-secondary: #F5F3EE;
@@ -62,7 +62,7 @@
 }
 
 /* ---------- Happy Dark Mode ---------- */
-[data-variant="happy"][data-theme="dark"] {
+:root[data-variant="happy"][data-theme="dark"] {
   /* Backgrounds — deep navy, warm darks */
   --bg: #1A2332;
   --bg-secondary: #1E2838;
@@ -119,7 +119,7 @@
 }
 
 /* ---------- Happy Semantic Colors (both modes) ---------- */
-[data-variant="happy"] {
+:root[data-variant="happy"] {
   /* Severity levels — remapped to positive semantics */
   --semantic-critical: #C4A35A;    /* celebration gold */
   --semantic-high: #6B8F5E;        /* growth green (sage) */
@@ -154,7 +154,7 @@
 }
 
 /* ---------- Happy Dark Mode Semantic Adjustments ---------- */
-[data-variant="happy"][data-theme="dark"] {
+:root[data-variant="happy"][data-theme="dark"] {
   /* Lighter variants for dark backgrounds */
   --semantic-critical: #D4B36A;
   --semantic-high: #8BAF7A;
