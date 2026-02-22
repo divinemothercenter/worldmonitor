@@ -150,7 +150,7 @@ function htmlVariantPlugin(): Plugin {
   return {
     name: 'html-variant',
     transformIndexHtml(html) {
-      return html
+      let result = html
         .replace(/<title>.*?<\/title>/, `<title>${activeMeta.title}</title>`)
         .replace(/<meta name="title" content=".*?" \/>/, `<meta name="title" content="${activeMeta.title}" />`)
         .replace(/<meta name="description" content=".*?" \/>/, `<meta name="description" content="${activeMeta.description}" />`)
@@ -171,6 +171,17 @@ function htmlVariantPlugin(): Plugin {
         .replace(/"url": "https:\/\/worldmonitor\.app\/"/, `"url": "${activeMeta.url}"`)
         .replace(/"description": "Real-time global intelligence dashboard with live news, markets, military tracking, infrastructure monitoring, and geopolitical data."/, `"description": "${activeMeta.description}"`)
         .replace(/"featureList": \[[\s\S]*?\]/, `"featureList": ${JSON.stringify(activeMeta.features, null, 8).replace(/\n/g, '\n      ')}`);
+
+      // Favicon variant paths — replace /favico/ paths with variant-specific subdirectory
+      if (activeVariant !== 'full') {
+        result = result
+          .replace(/\/favico\/favicon/g, `/favico/${activeVariant}/favicon`)
+          .replace(/\/favico\/apple-touch-icon/g, `/favico/${activeVariant}/apple-touch-icon`)
+          .replace(/\/favico\/android-chrome/g, `/favico/${activeVariant}/android-chrome`)
+          .replace(/\/favico\/og-image/g, `/favico/${activeVariant}/og-image`);
+      }
+
+      return result;
     },
   };
 }
