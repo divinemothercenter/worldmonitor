@@ -132,61 +132,61 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | TBD | Pending |
-| INFRA-02 | TBD | Pending |
-| INFRA-03 | TBD | Pending |
-| THEME-01 | TBD | Pending |
-| THEME-02 | TBD | Pending |
-| THEME-03 | TBD | Pending |
-| THEME-04 | TBD | Pending |
-| THEME-05 | TBD | Pending |
-| THEME-06 | TBD | Pending |
-| FEED-01 | TBD | Pending |
-| FEED-02 | TBD | Pending |
-| FEED-03 | TBD | Pending |
-| FEED-04 | TBD | Pending |
-| FEED-05 | TBD | Pending |
-| NEWS-01 | TBD | Pending |
-| NEWS-02 | TBD | Pending |
-| NEWS-03 | TBD | Pending |
-| MAP-01 | TBD | Pending |
-| MAP-02 | TBD | Pending |
-| MAP-03 | TBD | Pending |
-| MAP-04 | TBD | Pending |
-| MAP-05 | TBD | Pending |
-| COUNT-01 | TBD | Pending |
-| COUNT-02 | TBD | Pending |
-| COUNT-03 | TBD | Pending |
-| PROG-01 | TBD | Pending |
-| PROG-02 | TBD | Pending |
-| PROG-03 | TBD | Pending |
-| SCI-01 | TBD | Pending |
-| SCI-02 | TBD | Pending |
-| HERO-01 | TBD | Pending |
-| HERO-02 | TBD | Pending |
-| HERO-03 | TBD | Pending |
-| DIGEST-01 | TBD | Pending |
-| DIGEST-02 | TBD | Pending |
-| SPECIES-01 | TBD | Pending |
-| SPECIES-02 | TBD | Pending |
-| SPECIES-03 | TBD | Pending |
-| ENERGY-01 | TBD | Pending |
-| ENERGY-02 | TBD | Pending |
-| ENERGY-03 | TBD | Pending |
-| KIND-01 | TBD | Pending |
-| KIND-02 | TBD | Pending |
-| SHARE-01 | TBD | Pending |
-| SHARE-02 | TBD | Pending |
-| SHARE-03 | TBD | Pending |
-| TV-01 | TBD | Pending |
-| TV-02 | TBD | Pending |
-| TV-03 | TBD | Pending |
+| INFRA-01 | Phase 1 | Pending |
+| INFRA-02 | Phase 1 | Pending |
+| INFRA-03 | Phase 1 | Pending |
+| THEME-01 | Phase 1 | Pending |
+| THEME-02 | Phase 1 | Pending |
+| THEME-03 | Phase 1 | Pending |
+| THEME-04 | Phase 1 | Pending |
+| THEME-05 | Phase 1 | Pending |
+| THEME-06 | Phase 9 | Pending |
+| FEED-01 | Phase 2 | Pending |
+| FEED-02 | Phase 3 | Pending |
+| FEED-03 | Phase 2 | Pending |
+| FEED-04 | Phase 2 | Pending |
+| FEED-05 | Phase 3 | Pending |
+| NEWS-01 | Phase 3 | Pending |
+| NEWS-02 | Phase 3 | Pending |
+| NEWS-03 | Phase 3 | Pending |
+| MAP-01 | Phase 4 | Pending |
+| MAP-02 | Phase 4 | Pending |
+| MAP-03 | Phase 8 | Pending |
+| MAP-04 | Phase 8 | Pending |
+| MAP-05 | Phase 8 | Pending |
+| COUNT-01 | Phase 5 | Pending |
+| COUNT-02 | Phase 5 | Pending |
+| COUNT-03 | Phase 5 | Pending |
+| PROG-01 | Phase 5 | Pending |
+| PROG-02 | Phase 5 | Pending |
+| PROG-03 | Phase 5 | Pending |
+| SCI-01 | Phase 6 | Pending |
+| SCI-02 | Phase 6 | Pending |
+| HERO-01 | Phase 6 | Pending |
+| HERO-02 | Phase 6 | Pending |
+| HERO-03 | Phase 6 | Pending |
+| DIGEST-01 | Phase 6 | Pending |
+| DIGEST-02 | Phase 6 | Pending |
+| SPECIES-01 | Phase 7 | Pending |
+| SPECIES-02 | Phase 7 | Pending |
+| SPECIES-03 | Phase 7 | Pending |
+| ENERGY-01 | Phase 7 | Pending |
+| ENERGY-02 | Phase 7 | Pending |
+| ENERGY-03 | Phase 7 | Pending |
+| KIND-01 | Phase 4 | Pending |
+| KIND-02 | Phase 4 | Pending |
+| SHARE-01 | Phase 9 | Pending |
+| SHARE-02 | Phase 9 | Pending |
+| SHARE-03 | Phase 9 | Pending |
+| TV-01 | Phase 9 | Pending |
+| TV-02 | Phase 9 | Pending |
+| TV-03 | Phase 9 | Pending |
 
 **Coverage:**
-- v1 requirements: 48 total
-- Mapped to phases: 0
-- Unmapped: 48
+- v1 requirements: 49 total
+- Mapped to phases: 49
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-22*
-*Last updated: 2026-02-22 after initial definition*
+*Last updated: 2026-02-22 after roadmap creation*
