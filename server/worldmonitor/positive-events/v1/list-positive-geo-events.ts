@@ -16,8 +16,9 @@ const GDELT_GEO_URL = 'https://api.gdeltproject.org/api/v2/geo/geo';
 
 // Compound positive queries combining topics from POSITIVE_GDELT_TOPICS pattern
 const POSITIVE_QUERIES = [
-  'breakthrough OR discovery OR renewable energy',
-  'conservation success OR poverty decline OR humanitarian aid',
+  '(breakthrough OR discovery OR "renewable energy")',
+  '(conservation OR "poverty decline" OR "humanitarian aid")',
+  '("good news" OR volunteer OR donation OR charity)',
 ];
 
 async function fetchGdeltGeoPositive(query: string): Promise<PositiveGeoEvent[]> {
