@@ -97,6 +97,9 @@ import { AI_RESEARCH_LABS } from '@/config/ai-research-labs';
 import { STARTUP_ECOSYSTEMS } from '@/config/startup-ecosystems';
 import { TECH_HQS, ACCELERATORS } from '@/config/tech-geo';
 import { STOCK_EXCHANGES, FINANCIAL_CENTERS, CENTRAL_BANKS, COMMODITY_HUBS } from '@/config/finance-geo';
+import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
+import { filterBySentiment } from '@/services/sentiment-gate';
+import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { isDesktopRuntime } from '@/services/runtime';
 import { IntelligenceServiceClient } from '@/generated/client/worldmonitor/intelligence/v1/service_client';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
@@ -198,6 +201,8 @@ export class App {
   private readonly UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
   private updateCheckIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
+  private positivePanel: PositiveNewsFeedPanel | null = null;
+  private happyAllItems: NewsItem[] = [];
 
   constructor(containerId: string) {
     const el = document.getElementById(containerId);
@@ -2393,6 +2398,12 @@ export class App {
       this.panels['runtime-config'] = runtimeConfigPanel;
     }
 
+    // Positive News Feed Panel (happy variant only)
+    if (SITE_VARIANT === 'happy') {
+      this.positivePanel = new PositiveNewsFeedPanel();
+      this.panels['positive-feed'] = this.positivePanel;
+    }
+
     // AI Insights Panel (desktop only - hides itself on mobile) -- available for all variants
     const insightsPanel = new InsightsPanel();
     this.panels['insights'] = insightsPanel;
@@ -3415,6 +3426,8 @@ export class App {
         for (const item of items) {
           item.happyCategory = classifyNewsItem(item.source, item.title);
         }
+        // Accumulate curated items for the positive news pipeline
+        this.happyAllItems = this.happyAllItems.concat(items);
       }
 
       this.renderNewsForCategory(category, items);
@@ -3460,6 +3473,11 @@ export class App {
   }
 
   private async loadNews(): Promise<void> {
+    // Reset happy variant accumulator for fresh pipeline run
+    if (SITE_VARIANT === 'happy') {
+      this.happyAllItems = [];
+    }
+
     // Build categories dynamically from whatever feeds the current variant exports
     const categories = Object.entries(FEEDS)
       .filter((entry): entry is [string, typeof FEEDS[keyof typeof FEEDS]] => Array.isArray(entry[1]) && entry[1].length > 0)
@@ -3521,6 +3539,12 @@ export class App {
     this.initialLoadComplete = true;
     maybeShowDownloadBanner();
     mountCommunityWidget();
+
+    // Happy variant: run multi-stage positive news pipeline
+    if (SITE_VARIANT === 'happy') {
+      await this.loadHappySupplementaryAndRender();
+    }
+
     // Temporal baseline: report news volume
     updateAndCheck([
       { type: 'news', region: 'global', count: collectedNews.length },
@@ -3561,6 +3585,52 @@ export class App {
       }
     } catch (error) {
       console.error('[App] Clustering failed, clusters unchanged:', error);
+    }
+  }
+
+  /**
+   * Multi-stage positive news pipeline for the happy variant:
+   * 1. Render curated items immediately (non-blocking UX)
+   * 2. Fetch GDELT positive articles as supplementary content
+   * 3. Sentiment-filter GDELT articles via DistilBERT-SST2
+   * 4. Merge curated + supplementary, sorted by date, re-render
+   */
+  private async loadHappySupplementaryAndRender(): Promise<void> {
+    if (!this.positivePanel) return;
+
+    // Stage 1: Curated items already accumulated in happyAllItems
+    const curated = [...this.happyAllItems];
+
+    // Render curated immediately (non-blocking UX -- never wait for ML)
+    this.positivePanel.renderPositiveNews(curated);
+
+    // Stage 2: Load GDELT positive articles as supplementary content
+    let supplementary: NewsItem[] = [];
+    try {
+      const gdeltTopics = await fetchAllPositiveTopicIntelligence();
+      const gdeltItems: NewsItem[] = gdeltTopics.flatMap(topic =>
+        topic.articles.map(article => ({
+          source: 'GDELT',
+          title: article.title,
+          link: article.url,
+          pubDate: article.date ? new Date(article.date) : new Date(),
+          isAlert: false,
+          imageUrl: article.image || undefined,
+          happyCategory: classifyNewsItem('GDELT', article.title),
+        }))
+      );
+
+      // Stage 3: Sentiment-filter GDELT articles
+      supplementary = await filterBySentiment(gdeltItems);
+    } catch (err) {
+      console.warn('[App] Happy supplementary pipeline failed, using curated only:', err);
+    }
+
+    // Stage 4: Merge curated + supplementary, sorted by date, re-render
+    if (supplementary.length > 0) {
+      const merged = [...curated, ...supplementary];
+      merged.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
+      this.positivePanel.renderPositiveNews(merged);
     }
   }
 

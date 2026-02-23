@@ -8,7 +8,7 @@ export * from './base';
 // Panel configuration for happy/positive news dashboard
 export const DEFAULT_PANELS: Record<string, PanelConfig> = {
   map: { name: 'World Map', enabled: true, priority: 1 },
-  'live-news': { name: 'Good News', enabled: true, priority: 1 },
+  'positive-feed': { name: 'Good News Feed', enabled: true, priority: 1 },
   progress: { name: 'Human Progress', enabled: true, priority: 1 },
   counters: { name: 'Live Counters', enabled: true, priority: 1 },
   spotlight: { name: "Today's Hero", enabled: true, priority: 1 },
