@@ -98,6 +98,9 @@ import { STARTUP_ECOSYSTEMS } from '@/config/startup-ecosystems';
 import { TECH_HQS, ACCELERATORS } from '@/config/tech-geo';
 import { STOCK_EXCHANGES, FINANCIAL_CENTERS, CENTRAL_BANKS, COMMODITY_HUBS } from '@/config/finance-geo';
 import { PositiveNewsFeedPanel } from '@/components/PositiveNewsFeedPanel';
+import { CountersPanel } from '@/components/CountersPanel';
+import { ProgressChartsPanel } from '@/components/ProgressChartsPanel';
+import { fetchProgressData } from '@/services/progress-data';
 import { filterBySentiment } from '@/services/sentiment-gate';
 import { fetchAllPositiveTopicIntelligence } from '@/services/gdelt-intel';
 import { fetchPositiveGeoEvents, geocodePositiveNewsItems } from '@/services/positive-events-geo';
@@ -204,6 +207,8 @@ export class App {
   private updateCheckIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
   private positivePanel: PositiveNewsFeedPanel | null = null;
+  private countersPanel?: CountersPanel;
+  private progressPanel?: ProgressChartsPanel;
   private happyAllItems: NewsItem[] = [];
 
   constructor(containerId: string) {
@@ -2106,6 +2111,10 @@ export class App {
       this.boundIdleResetHandler = null;
     }
 
+    // Clean up happy variant panels
+    this.countersPanel?.destroy();
+    this.progressPanel?.destroy();
+
     // Clean up map and AIS
     this.map?.destroy();
     disconnectAisStream();
@@ -2404,6 +2413,19 @@ export class App {
     if (SITE_VARIANT === 'happy') {
       this.positivePanel = new PositiveNewsFeedPanel();
       this.panels['positive-feed'] = this.positivePanel;
+    }
+
+    // Counters Panel (happy variant only)
+    if (SITE_VARIANT === 'happy') {
+      this.countersPanel = new CountersPanel();
+      this.panels['counters'] = this.countersPanel;
+      this.countersPanel.startTicking();
+    }
+
+    // Progress Charts Panel (happy variant only)
+    if (SITE_VARIANT === 'happy') {
+      this.progressPanel = new ProgressChartsPanel();
+      this.panels['progress'] = this.progressPanel;
     }
 
     // AI Insights Panel (desktop only - hides itself on mobile) -- available for all variants
@@ -3185,6 +3207,14 @@ export class App {
     if (SITE_VARIANT === 'happy' && this.mapLayers.kindness) {
       tasks.push({ name: 'kindness', task: runGuarded('kindness', async () => this.loadKindnessData()) });
     }
+    // Progress charts data (happy variant only)
+    if (SITE_VARIANT === 'happy') {
+      tasks.push({
+        name: 'progress',
+        task: runGuarded('progress', () => this.loadProgressData()),
+      });
+      // Counters don't need a load task -- they tick from hardcoded rates
+    }
     if (SITE_VARIANT !== 'happy' && this.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
     if (SITE_VARIANT !== 'happy' && this.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
     if (SITE_VARIANT !== 'happy' && this.mapLayers.cables) tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
@@ -3679,6 +3709,11 @@ export class App {
       }))
     );
     this.map?.setKindnessData(kindnessItems);
+  }
+
+  private async loadProgressData(): Promise<void> {
+    const datasets = await fetchProgressData();
+    this.progressPanel?.setData(datasets);
   }
 
   private async loadMarkets(): Promise<void> {
