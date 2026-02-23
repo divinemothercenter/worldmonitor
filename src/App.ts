@@ -2501,7 +2501,9 @@ export class App {
       const insertIdx = valid.indexOf('politics') + 1 || 0;
       const newPanels = missing.filter(k => k !== 'monitors');
       valid.splice(insertIdx, 0, ...newPanels);
-      valid.push('monitors'); // Always put monitors last
+      if (SITE_VARIANT !== 'happy') {
+        valid.push('monitors'); // Always put monitors last (not in happy variant)
+      }
       panelOrder = valid;
     }
 
