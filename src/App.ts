@@ -692,8 +692,8 @@ export class App {
   }
 
   private setupPizzIntIndicator(): void {
-    // Skip DEFCON indicator for tech/startup and finance variants
-    if (SITE_VARIANT === 'tech' || SITE_VARIANT === 'finance') return;
+    // Skip DEFCON indicator for tech/startup, finance, and happy variants
+    if (SITE_VARIANT === 'tech' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'happy') return;
 
     this.pizzintIndicator = new PizzIntIndicator();
     const headerLeft = this.container.querySelector('.header-left');
@@ -1312,13 +1312,21 @@ export class App {
           placeholder: t('modals.search.placeholderFinance'),
           hint: t('modals.search.hintFinance'),
         }
-        : {
-          placeholder: t('modals.search.placeholder'),
-          hint: t('modals.search.hint'),
-        };
+        : SITE_VARIANT === 'happy'
+          ? {
+            placeholder: 'Search good news...',
+            hint: 'Search positive stories and breakthroughs',
+          }
+          : {
+            placeholder: t('modals.search.placeholder'),
+            hint: t('modals.search.hint'),
+          };
     this.searchModal = new SearchModal(this.container, searchOptions);
 
-    if (SITE_VARIANT === 'tech') {
+    if (SITE_VARIANT === 'happy') {
+      // Happy variant: no geopolitical/military sources to search
+      // News items will be searchable via the default search index update
+    } else if (SITE_VARIANT === 'tech') {
       // Tech variant: tech-specific sources
       this.searchModal.registerSource('techcompany', TECH_COMPANIES.map(c => ({
         id: c.id,
@@ -1859,6 +1867,15 @@ export class App {
               <span class="variant-icon">📈</span>
               <span class="variant-label">${t('header.finance')}</span>
             </a>
+            <span class="variant-divider"></span>
+            <a href="${this.isDesktopApp ? '#' : (SITE_VARIANT === 'happy' ? '#' : 'https://happy.worldmonitor.app')}"
+               class="variant-option ${SITE_VARIANT === 'happy' ? 'active' : ''}"
+               data-variant="happy"
+               ${!this.isDesktopApp && SITE_VARIANT !== 'happy' ? 'target="_blank" rel="noopener"' : ''}
+               title="Good News${SITE_VARIANT === 'happy' ? ` ${t('common.currentVariant')}` : ''}">
+              <span class="variant-icon">☀️</span>
+              <span class="variant-label">Good News</span>
+            </a>
           </div>
           <span class="logo">MONITOR</span><span class="version">v${__APP_VERSION__}</span>${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
           <a href="https://x.com/eliehabib" target="_blank" rel="noopener" class="credit-link">
@@ -1902,7 +1919,7 @@ export class App {
         <div class="map-section" id="mapSection">
           <div class="panel-header">
             <div class="panel-header-left">
-              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : t('panels.map')}</span>
+              <span class="panel-title">${SITE_VARIANT === 'tech' ? t('panels.techMap') : SITE_VARIANT === 'happy' ? 'Good News Map' : t('panels.map')}</span>
             </div>
             <span class="header-clock" id="headerClock"></span>
             <button class="map-pin-btn" id="mapPinBtn" title="${t('header.pinMap')}">
@@ -2346,34 +2363,37 @@ export class App {
       this.panels['gcc-investments'] = investmentsPanel;
     }
 
-    const liveNewsPanel = new LiveNewsPanel();
-    this.panels['live-news'] = liveNewsPanel;
+    // Happy variant only gets dynamic FEEDS-based news panels + insights -- skip all other panels
+    if (SITE_VARIANT !== 'happy') {
+      const liveNewsPanel = new LiveNewsPanel();
+      this.panels['live-news'] = liveNewsPanel;
 
-    const liveWebcamsPanel = new LiveWebcamsPanel();
-    this.panels['live-webcams'] = liveWebcamsPanel;
+      const liveWebcamsPanel = new LiveWebcamsPanel();
+      this.panels['live-webcams'] = liveWebcamsPanel;
 
-    // Tech Events Panel (tech variant only - but create for all to allow toggling)
-    this.panels['events'] = new TechEventsPanel('events');
+      // Tech Events Panel (tech variant only - but create for all to allow toggling)
+      this.panels['events'] = new TechEventsPanel('events');
 
-    // Service Status Panel (primarily for tech variant)
-    const serviceStatusPanel = new ServiceStatusPanel();
-    this.panels['service-status'] = serviceStatusPanel;
+      // Service Status Panel (primarily for tech variant)
+      const serviceStatusPanel = new ServiceStatusPanel();
+      this.panels['service-status'] = serviceStatusPanel;
+
+      // Tech Readiness Panel (tech variant only - World Bank tech indicators)
+      const techReadinessPanel = new TechReadinessPanel();
+      this.panels['tech-readiness'] = techReadinessPanel;
+
+      // Crypto & Market Intelligence Panels
+      this.panels['macro-signals'] = new MacroSignalsPanel();
+      this.panels['etf-flows'] = new ETFFlowsPanel();
+      this.panels['stablecoins'] = new StablecoinPanel();
+    }
 
     if (this.isDesktopApp) {
       const runtimeConfigPanel = new RuntimeConfigPanel({ mode: 'alert' });
       this.panels['runtime-config'] = runtimeConfigPanel;
     }
 
-    // Tech Readiness Panel (tech variant only - World Bank tech indicators)
-    const techReadinessPanel = new TechReadinessPanel();
-    this.panels['tech-readiness'] = techReadinessPanel;
-
-    // Crypto & Market Intelligence Panels
-    this.panels['macro-signals'] = new MacroSignalsPanel();
-    this.panels['etf-flows'] = new ETFFlowsPanel();
-    this.panels['stablecoins'] = new StablecoinPanel();
-
-    // AI Insights Panel (desktop only - hides itself on mobile)
+    // AI Insights Panel (desktop only - hides itself on mobile) -- available for all variants
     const insightsPanel = new InsightsPanel();
     this.panels['insights'] = insightsPanel;
 
@@ -2400,18 +2420,21 @@ export class App {
 
     // CRITICAL: live-news MUST be first for CSS Grid layout (spans 2 columns)
     // Move it to position 0 if it exists and isn't already first
-    const liveNewsIdx = panelOrder.indexOf('live-news');
-    if (liveNewsIdx > 0) {
-      panelOrder.splice(liveNewsIdx, 1);
-      panelOrder.unshift('live-news');
-    }
+    // (Not applicable for happy variant which has no live-news panel)
+    if (SITE_VARIANT !== 'happy') {
+      const liveNewsIdx = panelOrder.indexOf('live-news');
+      if (liveNewsIdx > 0) {
+        panelOrder.splice(liveNewsIdx, 1);
+        panelOrder.unshift('live-news');
+      }
 
-    // live-webcams MUST follow live-news (one-time migration for existing users)
-    const webcamsIdx = panelOrder.indexOf('live-webcams');
-    if (webcamsIdx !== -1 && webcamsIdx !== panelOrder.indexOf('live-news') + 1) {
-      panelOrder.splice(webcamsIdx, 1);
-      const afterNews = panelOrder.indexOf('live-news') + 1;
-      panelOrder.splice(afterNews, 0, 'live-webcams');
+      // live-webcams MUST follow live-news (one-time migration for existing users)
+      const webcamsIdx = panelOrder.indexOf('live-webcams');
+      if (webcamsIdx !== -1 && webcamsIdx !== panelOrder.indexOf('live-news') + 1) {
+        panelOrder.splice(webcamsIdx, 1);
+        const afterNews = panelOrder.indexOf('live-news') + 1;
+        panelOrder.splice(afterNews, 0, 'live-webcams');
+      }
     }
 
     // Desktop configuration should stay easy to reach in Tauri builds.
@@ -3117,16 +3140,22 @@ export class App {
 
     const tasks: Array<{ name: string; task: Promise<void> }> = [
       { name: 'news', task: runGuarded('news', () => this.loadNews()) },
-      { name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) },
-      { name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) },
-      { name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) },
-      { name: 'fred', task: runGuarded('fred', () => this.loadFredData()) },
-      { name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) },
-      { name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) },
     ];
 
+    // Happy variant only loads news data -- skip all geopolitical/financial/military data
+    if (SITE_VARIANT !== 'happy') {
+      tasks.push(
+        { name: 'markets', task: runGuarded('markets', () => this.loadMarkets()) },
+        { name: 'predictions', task: runGuarded('predictions', () => this.loadPredictions()) },
+        { name: 'pizzint', task: runGuarded('pizzint', () => this.loadPizzInt()) },
+        { name: 'fred', task: runGuarded('fred', () => this.loadFredData()) },
+        { name: 'oil', task: runGuarded('oil', () => this.loadOilAnalytics()) },
+        { name: 'spending', task: runGuarded('spending', () => this.loadGovernmentSpending()) },
+      );
+    }
+
     // Load intelligence signals for CII calculation (protests, military, outages)
-    // Only for geopolitical variant - tech variant doesn't need CII/focal points
+    // Only for geopolitical variant - tech/happy variants don't need CII/focal points
     if (SITE_VARIANT === 'full') {
       tasks.push({ name: 'intelligence', task: runGuarded('intelligence', () => this.loadIntelligenceSignals()) });
     }
@@ -3134,15 +3163,16 @@ export class App {
     // Conditionally load non-intelligence layers
     // NOTE: outages, protests, military are handled by loadIntelligenceSignals() above
     // They update the map when layers are enabled, so no duplicate tasks needed here
+    // Happy variant skips all non-news data layers except natural (which is part of happy map layers)
     if (SITE_VARIANT === 'full') tasks.push({ name: 'firms', task: runGuarded('firms', () => this.loadFirmsData()) });
     if (this.mapLayers.natural) tasks.push({ name: 'natural', task: runGuarded('natural', () => this.loadNatural()) });
-    if (this.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
-    if (this.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
-    if (this.mapLayers.cables) tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
-    if (this.mapLayers.cables) tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
-    if (this.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
-    if (CYBER_LAYER_ENABLED && this.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', task: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
-    if (this.mapLayers.techEvents || SITE_VARIANT === 'tech') tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
+    if (SITE_VARIANT !== 'happy' && this.mapLayers.weather) tasks.push({ name: 'weather', task: runGuarded('weather', () => this.loadWeatherAlerts()) });
+    if (SITE_VARIANT !== 'happy' && this.mapLayers.ais) tasks.push({ name: 'ais', task: runGuarded('ais', () => this.loadAisSignals()) });
+    if (SITE_VARIANT !== 'happy' && this.mapLayers.cables) tasks.push({ name: 'cables', task: runGuarded('cables', () => this.loadCableActivity()) });
+    if (SITE_VARIANT !== 'happy' && this.mapLayers.cables) tasks.push({ name: 'cableHealth', task: runGuarded('cableHealth', () => this.loadCableHealth()) });
+    if (SITE_VARIANT !== 'happy' && this.mapLayers.flights) tasks.push({ name: 'flights', task: runGuarded('flights', () => this.loadFlightDelays()) });
+    if (SITE_VARIANT !== 'happy' && CYBER_LAYER_ENABLED && this.mapLayers.cyberThreats) tasks.push({ name: 'cyberThreats', task: runGuarded('cyberThreats', () => this.loadCyberThreats()) });
+    if (SITE_VARIANT !== 'happy' && (this.mapLayers.techEvents || SITE_VARIANT === 'tech')) tasks.push({ name: 'techEvents', task: runGuarded('techEvents', () => this.loadTechEvents()) });
 
     // Tech Readiness panel (tech variant only)
     if (SITE_VARIANT === 'tech') {
@@ -4599,38 +4629,42 @@ export class App {
   }
 
   private setupRefreshIntervals(): void {
-    // Always refresh news, markets, predictions, pizzint
+    // Always refresh news for all variants
     this.scheduleRefresh('news', () => this.loadNews(), REFRESH_INTERVALS.feeds);
-    this.scheduleRefresh('markets', () => this.loadMarkets(), REFRESH_INTERVALS.markets);
-    this.scheduleRefresh('predictions', () => this.loadPredictions(), REFRESH_INTERVALS.predictions);
-    this.scheduleRefresh('pizzint', () => this.loadPizzInt(), 10 * 60 * 1000);
 
-    // Only refresh layer data if layer is enabled
-    this.scheduleRefresh('natural', () => this.loadNatural(), 5 * 60 * 1000, () => this.mapLayers.natural);
-    this.scheduleRefresh('weather', () => this.loadWeatherAlerts(), 10 * 60 * 1000, () => this.mapLayers.weather);
-    this.scheduleRefresh('fred', () => this.loadFredData(), 30 * 60 * 1000);
-    this.scheduleRefresh('oil', () => this.loadOilAnalytics(), 30 * 60 * 1000);
-    this.scheduleRefresh('spending', () => this.loadGovernmentSpending(), 60 * 60 * 1000);
+    // Happy variant only refreshes news -- skip all geopolitical/financial/military refreshes
+    if (SITE_VARIANT !== 'happy') {
+      this.scheduleRefresh('markets', () => this.loadMarkets(), REFRESH_INTERVALS.markets);
+      this.scheduleRefresh('predictions', () => this.loadPredictions(), REFRESH_INTERVALS.predictions);
+      this.scheduleRefresh('pizzint', () => this.loadPizzInt(), 10 * 60 * 1000);
 
-    // Refresh intelligence signals for CII (geopolitical variant only)
-    // This handles outages, protests, military - updates map when layers enabled
-    if (SITE_VARIANT === 'full') {
-      this.scheduleRefresh('intelligence', () => {
-        this.intelligenceCache = {}; // Clear cache to force fresh fetch
-        return this.loadIntelligenceSignals();
-      }, 5 * 60 * 1000);
+      // Only refresh layer data if layer is enabled
+      this.scheduleRefresh('natural', () => this.loadNatural(), 5 * 60 * 1000, () => this.mapLayers.natural);
+      this.scheduleRefresh('weather', () => this.loadWeatherAlerts(), 10 * 60 * 1000, () => this.mapLayers.weather);
+      this.scheduleRefresh('fred', () => this.loadFredData(), 30 * 60 * 1000);
+      this.scheduleRefresh('oil', () => this.loadOilAnalytics(), 30 * 60 * 1000);
+      this.scheduleRefresh('spending', () => this.loadGovernmentSpending(), 60 * 60 * 1000);
+
+      // Refresh intelligence signals for CII (geopolitical variant only)
+      // This handles outages, protests, military - updates map when layers enabled
+      if (SITE_VARIANT === 'full') {
+        this.scheduleRefresh('intelligence', () => {
+          this.intelligenceCache = {}; // Clear cache to force fresh fetch
+          return this.loadIntelligenceSignals();
+        }, 5 * 60 * 1000);
+      }
+
+      // Non-intelligence layer refreshes only
+      // NOTE: outages, protests, military are refreshed by intelligence schedule above
+      this.scheduleRefresh('firms', () => this.loadFirmsData(), 30 * 60 * 1000);
+      this.scheduleRefresh('ais', () => this.loadAisSignals(), REFRESH_INTERVALS.ais, () => this.mapLayers.ais);
+      this.scheduleRefresh('cables', () => this.loadCableActivity(), 30 * 60 * 1000, () => this.mapLayers.cables);
+      this.scheduleRefresh('cableHealth', () => this.loadCableHealth(), 5 * 60 * 1000, () => this.mapLayers.cables);
+      this.scheduleRefresh('flights', () => this.loadFlightDelays(), 10 * 60 * 1000, () => this.mapLayers.flights);
+      this.scheduleRefresh('cyberThreats', () => {
+        this.cyberThreatsCache = null;
+        return this.loadCyberThreats();
+      }, 10 * 60 * 1000, () => CYBER_LAYER_ENABLED && this.mapLayers.cyberThreats);
     }
-
-    // Non-intelligence layer refreshes only
-    // NOTE: outages, protests, military are refreshed by intelligence schedule above
-    this.scheduleRefresh('firms', () => this.loadFirmsData(), 30 * 60 * 1000);
-    this.scheduleRefresh('ais', () => this.loadAisSignals(), REFRESH_INTERVALS.ais, () => this.mapLayers.ais);
-    this.scheduleRefresh('cables', () => this.loadCableActivity(), 30 * 60 * 1000, () => this.mapLayers.cables);
-    this.scheduleRefresh('cableHealth', () => this.loadCableHealth(), 5 * 60 * 1000, () => this.mapLayers.cables);
-    this.scheduleRefresh('flights', () => this.loadFlightDelays(), 10 * 60 * 1000, () => this.mapLayers.flights);
-    this.scheduleRefresh('cyberThreats', () => {
-      this.cyberThreatsCache = null;
-      return this.loadCyberThreats();
-    }, 10 * 60 * 1000, () => CYBER_LAYER_ENABLED && this.mapLayers.cyberThreats);
   }
 }
