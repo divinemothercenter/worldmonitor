@@ -948,9 +948,15 @@ const HAPPY_FEEDS: Record<string, Feed[]> = {
     { name: 'Positive.News', url: rss('https://www.positive.news/feed/') },
     { name: 'Reasons to be Cheerful', url: rss('https://reasonstobecheerful.world/feed/') },
     { name: 'Optimist Daily', url: rss('https://www.optimistdaily.com/feed/') },
+    { name: 'Sunny Skyz', url: rss('https://www.sunnyskyz.com/rss.xml') },
+    { name: 'HuffPost Good News', url: rss('https://www.huffpost.com/section/good-news/feed') },
   ],
   science: [
     { name: 'GNN Science', url: rss('https://www.goodnewsnetwork.org/category/news/science/feed/') },
+    { name: 'ScienceDaily', url: rss('https://www.sciencedaily.com/rss/top.xml') },
+    { name: 'Nature News', url: rss('https://feeds.nature.com/nature/rss/current') },
+    { name: 'Live Science', url: rss('https://www.livescience.com/feeds/all') },
+    { name: 'New Scientist', url: rss('https://www.newscientist.com/feed/home/') },
   ],
   nature: [
     { name: 'GNN Animals', url: rss('https://www.goodnewsnetwork.org/category/news/animals/feed/') },
