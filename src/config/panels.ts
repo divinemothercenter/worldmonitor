@@ -396,6 +396,9 @@ const HAPPY_PANELS: Record<string, PanelConfig> = {
   counters: { name: 'Live Counters', enabled: true, priority: 1 },
   spotlight: { name: "Today's Hero", enabled: true, priority: 1 },
   breakthroughs: { name: 'Breakthroughs', enabled: true, priority: 1 },
+  digest: { name: '5 Good Things', enabled: true, priority: 1 },
+  species: { name: 'Conservation Wins', enabled: true, priority: 1 },
+  renewable: { name: 'Renewable Energy', enabled: true, priority: 1 },
 };
 
 const HAPPY_MAP_LAYERS: MapLayers = {
