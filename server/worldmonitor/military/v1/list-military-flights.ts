@@ -14,6 +14,10 @@ import { getCachedJson, setCachedJson } from '../../../_shared/redis';
 const REDIS_CACHE_KEY = 'military:flights:v1';
 const REDIS_CACHE_TTL = 120; // 2 min — real-time ADS-B data
 
+/** Snap a coordinate to a grid step so nearby bbox values share cache entries. */
+const quantize = (v: number, step: number) => Math.round(v / step) * step;
+const BBOX_GRID_STEP = 1; // 1-degree grid (~111 km at equator)
+
 const AIRCRAFT_TYPE_MAP: Record<string, string> = {
   tanker: 'MILITARY_AIRCRAFT_TYPE_TANKER',
   awacs: 'MILITARY_AIRCRAFT_TYPE_AWACS',
@@ -31,14 +35,15 @@ export async function listMilitaryFlights(
     const bb = req.boundingBox;
     if (!bb?.southWest || !bb?.northEast) return { flights: [], clusters: [], pagination: undefined };
 
-    // Redis shared cache — use precise bbox + request qualifiers to avoid cross-request collisions.
-    const preciseBB = [
-      bb.southWest.latitude,
-      bb.southWest.longitude,
-      bb.northEast.latitude,
-      bb.northEast.longitude,
-    ].map((v) => Number.isFinite(v) ? String(v) : 'NaN').join(':');
-    const cacheKey = `${REDIS_CACHE_KEY}:${preciseBB}:${req.operator || ''}:${req.aircraftType || ''}:${req.pagination?.pageSize || 0}`;
+    // Quantize bbox to a 1° grid so nearby map views share cache entries.
+    // Precise coordinates caused near-zero hit rate since every pan/zoom created a unique key.
+    const quantizedBB = [
+      quantize(bb.southWest.latitude, BBOX_GRID_STEP),
+      quantize(bb.southWest.longitude, BBOX_GRID_STEP),
+      quantize(bb.northEast.latitude, BBOX_GRID_STEP),
+      quantize(bb.northEast.longitude, BBOX_GRID_STEP),
+    ].join(':');
+    const cacheKey = `${REDIS_CACHE_KEY}:${quantizedBB}:${req.operator || ''}:${req.aircraftType || ''}:${req.pagination?.pageSize || 0}`;
     const cached = (await getCachedJson(cacheKey)) as ListMilitaryFlightsResponse | null;
     if (cached?.flights?.length) return cached;
 
@@ -49,11 +54,19 @@ export async function listMilitaryFlights(
 
     if (!baseUrl) return { flights: [], clusters: [], pagination: undefined };
 
+    // Use quantized (expanded) bbox for the upstream fetch so cache results
+    // cover the full grid cell regardless of exact viewport position.
+    const fetchBB = {
+      lamin: quantize(bb.southWest.latitude, BBOX_GRID_STEP) - BBOX_GRID_STEP / 2,
+      lamax: quantize(bb.northEast.latitude, BBOX_GRID_STEP) + BBOX_GRID_STEP / 2,
+      lomin: quantize(bb.southWest.longitude, BBOX_GRID_STEP) - BBOX_GRID_STEP / 2,
+      lomax: quantize(bb.northEast.longitude, BBOX_GRID_STEP) + BBOX_GRID_STEP / 2,
+    };
     const params = new URLSearchParams();
-    params.set('lamin', String(bb.southWest.latitude));
-    params.set('lamax', String(bb.northEast.latitude));
-    params.set('lomin', String(bb.southWest.longitude));
-    params.set('lomax', String(bb.northEast.longitude));
+    params.set('lamin', String(fetchBB.lamin));
+    params.set('lamax', String(fetchBB.lamax));
+    params.set('lomin', String(fetchBB.lomin));
+    params.set('lomax', String(fetchBB.lomax));
 
     const url = `${baseUrl}${params.toString() ? '?' + params.toString() : ''}`;
     const resp = await fetch(url, {
