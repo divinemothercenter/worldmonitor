@@ -2,6 +2,7 @@ import { Panel } from './Panel';
 import type { NewsItem } from '@/types';
 import type { HappyContentCategory } from '@/services/positive-classifier';
 import { HAPPY_CATEGORY_ALL, HAPPY_CATEGORY_LABELS } from '@/services/positive-classifier';
+import { shareHappyCard } from '@/services/happy-share-renderer';
 import { formatTime } from '@/utils';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 
@@ -12,6 +13,7 @@ import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 export class PositiveNewsFeedPanel extends Panel {
   private activeFilter: HappyContentCategory | 'all' = 'all';
   private allItems: NewsItem[] = [];
+  private filteredItems: NewsItem[] = [];
   private filterButtons: Map<string, HTMLButtonElement> = new Map();
   private filterClickHandlers: Map<HTMLButtonElement, () => void> = new Map();
 
@@ -97,21 +99,51 @@ export class PositiveNewsFeedPanel extends Panel {
 
   /**
    * Render the card list from a filtered set of items.
+   * Attaches a delegated click handler for share buttons.
    */
   private renderCards(items: NewsItem[]): void {
+    this.filteredItems = items;
+
     if (items.length === 0) {
       this.content.innerHTML = '<div class="positive-feed-empty">No stories in this category yet</div>';
       return;
     }
 
-    this.content.innerHTML = items.map(item => this.renderCard(item)).join('');
+    this.content.innerHTML = items.map((item, idx) => this.renderCard(item, idx)).join('');
+
+    // Delegated click handler for share buttons
+    this.content.addEventListener('click', this.handleShareClick);
   }
+
+  /**
+   * Delegated click handler for .positive-card-share buttons.
+   */
+  private handleShareClick = (e: Event): void => {
+    const target = e.target as HTMLElement;
+    const shareBtn = target.closest('.positive-card-share') as HTMLButtonElement | null;
+    if (!shareBtn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const idx = parseInt(shareBtn.dataset.idx ?? '', 10);
+    const item = this.filteredItems[idx];
+    if (!item) return;
+
+    // Fire-and-forget share
+    shareHappyCard(item).catch(() => {});
+
+    // Brief visual feedback
+    shareBtn.classList.add('shared');
+    setTimeout(() => shareBtn.classList.remove('shared'), 1500);
+  };
 
   /**
    * Render a single positive news card as an HTML string.
    * Card is an <a> tag so the entire card is clickable.
+   * Share button inside the card body prevents link navigation via delegated handler.
    */
-  private renderCard(item: NewsItem): string {
+  private renderCard(item: NewsItem, idx: number): string {
     const imageHtml = item.imageUrl
       ? `<div class="positive-card-image"><img src="${sanitizeUrl(item.imageUrl)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
       : '';
@@ -130,6 +162,13 @@ export class PositiveNewsFeedPanel extends Panel {
     </div>
     <span class="positive-card-title">${escapeHtml(item.title)}</span>
     <span class="positive-card-time">${formatTime(item.pubDate)}</span>
+    <button class="positive-card-share" aria-label="Share this story" data-idx="${idx}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+        <polyline points="16 6 12 2 8 6"/>
+        <line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+    </button>
   </div>
 </a>`;
   }

@@ -173,7 +173,8 @@ export class TvModeController {
       });
     }
 
-    this.onPanelChange?.(this.panelKeys[index]);
+    const key = this.panelKeys[index];
+    if (key) this.onPanelChange?.(key);
   }
 
   private showAllPanels(): void {
