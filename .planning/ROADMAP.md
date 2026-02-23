@@ -178,10 +178,12 @@ Plans:
   3. A full-screen TV/ambient mode auto-cycles between panels at a configurable interval (30s-2min) with larger typography and suppressed interactive elements
   4. Subtle ambient animations (floating particles, gentle transitions) create a warm background feel in TV mode
   5. Milestone moments (species recovery announced, renewable energy record, etc.) trigger celebration animations via canvas-confetti
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: TBD
+- [ ] 09-01-PLAN.md -- Branded share card Canvas 2D renderer + share button on positive news cards (SHARE-01, SHARE-02, SHARE-03)
+- [ ] 09-02-PLAN.md -- TV/ambient mode controller, CSS overrides, ambient particles, header button + keyboard shortcut (TV-01, TV-02, TV-03)
+- [ ] 09-03-PLAN.md -- Celebration animations via canvas-confetti with milestone detection and session dedup (THEME-06)
 - [ ] 09-02: TBD
 - [ ] 09-03: TBD
 
