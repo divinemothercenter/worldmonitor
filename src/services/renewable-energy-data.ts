@@ -71,8 +71,9 @@ export async function fetchRenewableEnergyData(): Promise<RenewableEnergyData> {
       years: 35,
     });
 
-    // --- Extract global (World = "1W") data ---
-    const worldData = response.byCountry['1W'];
+    // --- Extract global (World = "WLD") data ---
+    // World Bank API returns countryiso3code "WLD" for world aggregate (request code "1W").
+    const worldData = response.byCountry['WLD'];
     if (!worldData || worldData.values.length === 0) {
       return EMPTY_DATA;
     }
@@ -100,7 +101,7 @@ export async function fetchRenewableEnergyData(): Promise<RenewableEnergyData> {
 
     for (const region of REGIONS) {
       // Skip "World" -- it's already in globalPercentage
-      if (region.code === '1W') continue;
+      if (region.code === '1W' || region.code === 'WLD') continue;
 
       try {
         const countryData = response.byCountry[region.code];

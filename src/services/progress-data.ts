@@ -111,8 +111,8 @@ export async function fetchProgressData(): Promise<ProgressDataSet[]> {
           });
 
           // Extract year/value pairs from the World-level data.
-          // byCountry keyed by country code -- "1W" for world aggregate.
-          const countryData = response.byCountry['1W'];
+          // World Bank API returns countryiso3code "WLD" for world aggregate (request code "1W").
+          const countryData = response.byCountry['WLD'];
           if (!countryData || countryData.values.length === 0) {
             return emptyDataSet(indicator);
           }
