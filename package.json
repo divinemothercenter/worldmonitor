@@ -54,6 +54,7 @@
     "@tauri-apps/cli": "^2.10.0",
     "@types/d3": "^7.4.3",
     "@types/maplibre-gl": "^1.13.2",
+    "@types/papaparse": "^5.5.2",
     "@types/topojson-client": "^3.1.5",
     "@types/topojson-specification": "^1.0.5",
     "esbuild": "^0.27.3",
@@ -81,6 +82,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "maplibre-gl": "^5.16.0",
     "onnxruntime-web": "^1.23.2",
+    "papaparse": "^5.5.3",
     "posthog-js": "^1.352.0",
     "topojson-client": "^3.1.0",
     "youtubei.js": "^16.0.1"
