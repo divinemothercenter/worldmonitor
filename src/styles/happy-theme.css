@@ -69,6 +69,7 @@
   --semantic-normal: #6B8F5E;
   --semantic-low: #C48B9F;
   --semantic-info: #7BA5C4;
+  --semantic-positive: #6B8F5E;
 
   /* Threat levels — remapped to positive tones */
   --threat-critical: #C4A35A;
@@ -158,6 +159,7 @@
   --semantic-normal: #8BAF7A;
   --semantic-low: #D49BAF;
   --semantic-info: #8BB5D4;
+  --semantic-positive: #8BAF7A;
 
   --threat-critical: #D4B36A;
   --threat-high: #9BBF8A;
