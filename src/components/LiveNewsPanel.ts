@@ -1,7 +1,10 @@
 import { Panel } from './Panel';
 import { fetchLiveVideoId } from '@/services/live-news';
 import { isDesktopRuntime, getRemoteApiBaseUrl } from '@/services/runtime';
+import { invokeTauri } from '@/services/tauri-bridge';
 import { t } from '../services/i18n';
+import { loadFromStorage, saveToStorage } from '@/utils';
+import { STORAGE_KEYS } from '@/config';
 
 // YouTube IFrame Player API types
 type YouTubePlayer = {
@@ -12,6 +15,7 @@ type YouTubePlayer = {
   loadVideoById(videoId: string): void;
   cueVideoById(videoId: string): void;
   getIframe?(): HTMLIFrameElement;
+  getVolume?(): number;
   destroy(): void;
 };
 
@@ -39,7 +43,7 @@ declare global {
   }
 }
 
-interface LiveChannel {
+export interface LiveChannel {
   id: string;
   name: string;
   handle: string; // YouTube channel handle (e.g., @bloomberg)
@@ -71,11 +75,123 @@ const TECH_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'nasa', name: 'NASA TV', handle: '@NASA', fallbackVideoId: 'fO9e9jnhYK8', useFallbackOnly: true },
 ];
 
-const LIVE_CHANNELS: LiveChannel[] = SITE_VARIANT === 'tech' ? TECH_LIVE_CHANNELS : SITE_VARIANT === 'happy' ? [] : FULL_LIVE_CHANNELS;
+// Optional channels users can add from the "Available Channels" tab UI
+export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
+  // North America
+  { id: 'livenow-fox', name: 'LiveNOW from FOX', handle: '@LiveNOWfromFOX' },
+  { id: 'fox-news', name: 'Fox News', handle: '@FoxNews', fallbackVideoId: 'QaftgYkG-ek', useFallbackOnly: true },
+  { id: 'newsmax', name: 'Newsmax', handle: '@NEWSMAX', fallbackVideoId: 'cZikyozILOY', useFallbackOnly: true },
+  { id: 'abc-news', name: 'ABC News', handle: '@ABCNews' },
+  { id: 'cbs-news', name: 'CBS News', handle: '@CBSNews' },
+  { id: 'nbc-news', name: 'NBC News', handle: '@NBCNews' },
+  // Europe
+  { id: 'welt', name: 'WELT', handle: '@WELTNachrichtensender' },
+  { id: 'rtve', name: 'RTVE 24H', handle: '@RTVENoticias', fallbackVideoId: '7_srED6k0bE' },
+  { id: 'trt-haber', name: 'TRT Haber', handle: '@trthaber' },
+  { id: 'ntv-turkey', name: 'NTV', handle: '@NTV' },
+  { id: 'cnn-turk', name: 'CNN TURK', handle: '@cnnturk' },
+  { id: 'tv-rain', name: 'TV Rain', handle: '@tvrain' },
+  // Latin America & Portuguese
+  { id: 'cnn-brasil', name: 'CNN Brasil', handle: '@CNNbrasil', fallbackVideoId: '1kWRw-DA6Ns' },
+  { id: 'jovem-pan', name: 'Jovem Pan News', handle: '@jovempannews' },
+  { id: 'record-news', name: 'Record News', handle: '@recordnewsoficial' },
+  { id: 'band-jornalismo', name: 'Band Jornalismo', handle: '@BandJornalismo' },
+  { id: 'tn-argentina', name: 'TN (Todo Noticias)', handle: '@todonoticias', fallbackVideoId: 'cb12KmMMDJA' },
+  { id: 'c5n', name: 'C5N', handle: '@c5n', fallbackVideoId: 'NdQSOItOQ5Y' },
+  { id: 'milenio', name: 'MILENIO', handle: '@MILENIO' },
+  { id: 'noticias-caracol', name: 'Noticias Caracol', handle: '@NoticiasCaracol' },
+  { id: 'ntn24', name: 'NTN24', handle: '@NTN24' },
+  { id: 't13', name: 'T13', handle: '@T13' },
+  // Asia
+  { id: 'tbs-news', name: 'TBS NEWS DIG', handle: '@tbsnewsdig', fallbackVideoId: 'ohI356mwBp8' },
+  { id: 'ann-news', name: 'ANN News', handle: '@ANNnewsCH' },
+  { id: 'ntv-news', name: 'NTV News (Japan)', handle: '@ntv_news' },
+  { id: 'cti-news', name: 'CTI News (Taiwan)', handle: '@CtiTv', fallbackVideoId: 'wUPPkSANpyo', useFallbackOnly: true },
+  { id: 'wion', name: 'WION', handle: '@WIONews' },
+  { id: 'vtc-now', name: 'VTC NOW', handle: '@VTCNOW' },
+  { id: 'cna-asia', name: 'CNA (NewsAsia)', handle: '@channelnewsasia' },
+  { id: 'nhk-world', name: 'NHK World Japan', handle: '@NHKWORLDJAPAN' },
+  // Africa
+  { id: 'africanews', name: 'Africanews', handle: '@africanews' },
+  { id: 'channels-tv', name: 'Channels TV', handle: '@channelstv' },
+  { id: 'ktn-news', name: 'KTN News', handle: '@KTNNewsKE' },
+  { id: 'enca', name: 'eNCA', handle: '@enewschannel' },
+  { id: 'sabc-news', name: 'SABC News', handle: '@SABCNews' },
+];
+
+export const OPTIONAL_CHANNEL_REGIONS: { key: string; labelKey: string; channelIds: string[] }[] = [
+  { key: 'na', labelKey: 'components.liveNews.regionNorthAmerica', channelIds: ['livenow-fox', 'fox-news', 'newsmax', 'abc-news', 'cbs-news', 'nbc-news'] },
+  { key: 'eu', labelKey: 'components.liveNews.regionEurope', channelIds: ['welt', 'rtve', 'trt-haber', 'ntv-turkey', 'cnn-turk', 'tv-rain'] },
+  { key: 'latam', labelKey: 'components.liveNews.regionLatinAmerica', channelIds: ['cnn-brasil', 'jovem-pan', 'record-news', 'band-jornalismo', 'tn-argentina', 'c5n', 'milenio', 'noticias-caracol', 'ntn24', 't13'] },
+  { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'vtc-now', 'cna-asia', 'nhk-world'] },
+  { key: 'africa', labelKey: 'components.liveNews.regionAfrica', channelIds: ['africanews', 'channels-tv', 'ktn-news', 'enca', 'sabc-news'] },
+];
+
+const DEFAULT_LIVE_CHANNELS = SITE_VARIANT === 'tech' ? TECH_LIVE_CHANNELS : SITE_VARIANT === 'happy' ? [] : FULL_LIVE_CHANNELS;
+
+/** Default channel list for the current variant (for restore in channel management). */
+export function getDefaultLiveChannels(): LiveChannel[] {
+  return [...DEFAULT_LIVE_CHANNELS];
+}
+
+export interface StoredLiveChannels {
+  order: string[];
+  custom?: LiveChannel[];
+  /** Display name overrides for built-in channels (and custom). */
+  displayNameOverrides?: Record<string, string>;
+}
+
+const DEFAULT_STORED: StoredLiveChannels = {
+  order: DEFAULT_LIVE_CHANNELS.map((c) => c.id),
+};
+
+export const BUILTIN_IDS = new Set([
+  ...FULL_LIVE_CHANNELS.map((c) => c.id),
+  ...TECH_LIVE_CHANNELS.map((c) => c.id),
+  ...OPTIONAL_LIVE_CHANNELS.map((c) => c.id),
+]);
+
+export function loadChannelsFromStorage(): LiveChannel[] {
+  const stored = loadFromStorage<StoredLiveChannels>(STORAGE_KEYS.liveChannels, DEFAULT_STORED);
+  const order = stored.order?.length ? stored.order : DEFAULT_STORED.order;
+  const channelMap = new Map<string, LiveChannel>();
+  for (const c of FULL_LIVE_CHANNELS) channelMap.set(c.id, { ...c });
+  for (const c of TECH_LIVE_CHANNELS) channelMap.set(c.id, { ...c });
+  for (const c of OPTIONAL_LIVE_CHANNELS) channelMap.set(c.id, { ...c });
+  for (const c of stored.custom ?? []) {
+    if (c.id && c.handle) channelMap.set(c.id, { ...c });
+  }
+  const overrides = stored.displayNameOverrides ?? {};
+  for (const [id, name] of Object.entries(overrides)) {
+    const ch = channelMap.get(id);
+    if (ch) ch.name = name;
+  }
+  const result: LiveChannel[] = [];
+  for (const id of order) {
+    const ch = channelMap.get(id);
+    if (ch) result.push(ch);
+  }
+  return result;
+}
+
+export function saveChannelsToStorage(channels: LiveChannel[]): void {
+  const order = channels.map((c) => c.id);
+  const custom = channels.filter((c) => !BUILTIN_IDS.has(c.id));
+  const builtinNames = new Map<string, string>();
+  for (const c of [...FULL_LIVE_CHANNELS, ...TECH_LIVE_CHANNELS, ...OPTIONAL_LIVE_CHANNELS]) builtinNames.set(c.id, c.name);
+  const displayNameOverrides: Record<string, string> = {};
+  for (const c of channels) {
+    if (builtinNames.has(c.id) && c.name !== builtinNames.get(c.id)) {
+      displayNameOverrides[c.id] = c.name;
+    }
+  }
+  saveToStorage(STORAGE_KEYS.liveChannels, { order, custom, displayNameOverrides });
+}
 
 export class LiveNewsPanel extends Panel {
   private static apiPromise: Promise<void> | null = null;
-  private activeChannel: LiveChannel = LIVE_CHANNELS[0]!;
+  private channels: LiveChannel[] = [];
+  private activeChannel!: LiveChannel;
   private channelSwitcher: HTMLElement | null = null;
   private isMuted = true;
   private isPlaying = true;
@@ -103,18 +219,27 @@ export class LiveNewsPanel extends Panel {
   private desktopEmbedIframe: HTMLIFrameElement | null = null;
   private desktopEmbedRenderToken = 0;
   private boundMessageHandler!: (e: MessageEvent) => void;
+  private muteSyncInterval: ReturnType<typeof setInterval> | null = null;
+  private static readonly MUTE_SYNC_POLL_MS = 500;
 
   constructor() {
     super({ id: 'live-news', title: t('panels.liveNews') });
     this.youtubeOrigin = LiveNewsPanel.resolveYouTubeOrigin();
     this.playerElementId = `live-news-player-${Date.now()}`;
     this.element.classList.add('panel-wide');
+    this.channels = loadChannelsFromStorage();
+    if (this.channels.length === 0) this.channels = getDefaultLiveChannels();
+    this.activeChannel = this.channels[0]!;
     this.createLiveButton();
     this.createMuteButton();
     this.createChannelSwitcher();
     this.setupBridgeMessageListener();
     this.renderPlayer();
     this.setupIdleDetection();
+  }
+
+  private saveChannels(): void {
+    saveChannelsToStorage(this.channels);
   }
 
   private get embedOrigin(): string {
@@ -139,6 +264,12 @@ export class LiveNewsPanel extends Panel {
           this.renderDesktopEmbed(true);
         } else {
           this.showEmbedError(this.activeChannel, code);
+        }
+      } else if (msg.type === 'yt-mute-state') {
+        const muted = msg.muted === true;
+        if (this.isMuted !== muted) {
+          this.isMuted = muted;
+          this.updateMuteIcon();
         }
       }
     };
@@ -206,7 +337,32 @@ export class LiveNewsPanel extends Panel {
     this.destroyPlayer();
   }
 
+  private stopMuteSyncPolling(): void {
+    if (this.muteSyncInterval !== null) {
+      clearInterval(this.muteSyncInterval);
+      this.muteSyncInterval = null;
+    }
+  }
+
+  private startMuteSyncPolling(): void {
+    this.stopMuteSyncPolling();
+    this.muteSyncInterval = setInterval(() => this.syncMuteStateFromPlayer(), LiveNewsPanel.MUTE_SYNC_POLL_MS);
+  }
+
+  private syncMuteStateFromPlayer(): void {
+    if (this.useDesktopEmbedProxy || !this.player || !this.isPlayerReady) return;
+    const p = this.player as { getVolume?(): number; isMuted?(): boolean };
+    const muted = typeof p.isMuted === 'function'
+      ? p.isMuted()
+      : (p.getVolume?.() === 0);
+    if (typeof muted === 'boolean' && muted !== this.isMuted) {
+      this.isMuted = muted;
+      this.updateMuteIcon();
+    }
+  }
+
   private destroyPlayer(): void {
+    this.stopMuteSyncPolling();
     if (this.player) {
       this.player.destroy();
       this.player = null;
@@ -302,20 +458,100 @@ export class LiveNewsPanel extends Panel {
     this.syncPlayerState();
   }
 
+  /** Creates a single channel tab button with click and drag handlers. */
+  private createChannelButton(channel: LiveChannel): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.className = `live-channel-btn ${channel.id === this.activeChannel.id ? 'active' : ''}`;
+    btn.dataset.channelId = channel.id;
+    btn.draggable = true;
+    btn.textContent = channel.name;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.switchChannel(channel);
+    });
+    btn.addEventListener('dragstart', (e) => {
+      btn.classList.add('live-channel-dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.setData('text/plain', channel.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }
+    });
+    btn.addEventListener('dragend', () => {
+      btn.classList.remove('live-channel-dragging');
+      this.applyChannelOrderFromDom();
+    });
+    return btn;
+  }
+
   private createChannelSwitcher(): void {
     this.channelSwitcher = document.createElement('div');
     this.channelSwitcher.className = 'live-news-switcher';
 
-    LIVE_CHANNELS.forEach(channel => {
-      const btn = document.createElement('button');
-      btn.className = `live-channel-btn ${channel.id === this.activeChannel.id ? 'active' : ''}`;
-      btn.dataset.channelId = channel.id;
-      btn.textContent = channel.name;
-      btn.addEventListener('click', () => this.switchChannel(channel));
-      this.channelSwitcher!.appendChild(btn);
+    for (const channel of this.channels) {
+      this.channelSwitcher.appendChild(this.createChannelButton(channel));
+    }
+
+    this.channelSwitcher.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const dragging = this.channelSwitcher?.querySelector('.live-channel-dragging');
+      if (!dragging || !this.channelSwitcher) return;
+      const target = (e.target as HTMLElement).closest?.('.live-channel-btn');
+      if (!target || target === dragging) return;
+      const all = Array.from(this.channelSwitcher.querySelectorAll('.live-channel-btn'));
+      const idx = all.indexOf(dragging as Element);
+      const targetIdx = all.indexOf(target);
+      if (idx === -1 || targetIdx === -1) return;
+      if (idx < targetIdx) {
+        target.parentElement?.insertBefore(dragging, target.nextSibling);
+      } else {
+        target.parentElement?.insertBefore(dragging, target);
+      }
     });
 
-    this.element.insertBefore(this.channelSwitcher, this.content);
+    const toolbar = document.createElement('div');
+    toolbar.className = 'live-news-toolbar';
+    toolbar.appendChild(this.channelSwitcher);
+    this.createManageButton(toolbar);
+    this.element.insertBefore(toolbar, this.content);
+  }
+
+  private createManageButton(toolbar: HTMLElement): void {
+    const openBtn = document.createElement('button');
+    openBtn.type = 'button';
+    openBtn.className = 'live-news-settings-btn';
+    openBtn.title = t('components.liveNews.channelSettings') ?? 'Channel Settings';
+    openBtn.innerHTML =
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+    openBtn.addEventListener('click', () => {
+      if (isDesktopRuntime()) {
+        void invokeTauri<void>('open_live_channels_window_command', {
+          base_url: window.location.origin,
+        }).catch(() => {});
+        return;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('live-channels', '1');
+      window.open(url.toString(), 'worldmonitor-live-channels', 'width=680,height=760,scrollbars=yes');
+    });
+    toolbar.appendChild(openBtn);
+  }
+
+  private refreshChannelSwitcher(): void {
+    if (!this.channelSwitcher) return;
+    this.channelSwitcher.innerHTML = '';
+    for (const channel of this.channels) {
+      this.channelSwitcher.appendChild(this.createChannelButton(channel));
+    }
+  }
+
+  private applyChannelOrderFromDom(): void {
+    if (!this.channelSwitcher) return;
+    const ids = Array.from(this.channelSwitcher.querySelectorAll<HTMLElement>('.live-channel-btn'))
+      .map((el) => el.dataset.channelId)
+      .filter((id): id is string => !!id);
+    const orderMap = new Map(this.channels.map((c) => [c.id, c]));
+    this.channels = ids.map((id) => orderMap.get(id)).filter((c): c is LiveChannel => !!c);
+    this.saveChannels();
   }
 
   private async resolveChannelVideo(channel: LiveChannel, forceFallback = false): Promise<void> {
@@ -584,6 +820,7 @@ export class LiveNewsPanel extends Panel {
           const iframe = this.player?.getIframe?.();
           if (iframe) iframe.referrerPolicy = 'strict-origin-when-cross-origin';
           this.syncPlayerState();
+          this.startMuteSyncPolling();
         },
         onError: (event) => {
           const errorCode = Number(event?.data ?? 0);
@@ -682,7 +919,20 @@ export class LiveNewsPanel extends Panel {
     this.syncPlayerState();
   }
 
+  /** Reload channel list from storage (e.g. after edit in separate channel management window). */
+  public refreshChannelsFromStorage(): void {
+    this.channels = loadChannelsFromStorage();
+    if (this.channels.length === 0) this.channels = getDefaultLiveChannels();
+    if (!this.channels.some((c) => c.id === this.activeChannel.id)) {
+      this.activeChannel = this.channels[0]!;
+      void this.switchChannel(this.activeChannel);
+    }
+    this.refreshChannelSwitcher();
+  }
+
   public destroy(): void {
+    this.destroyPlayer();
+
     if (this.idleTimeout) {
       clearTimeout(this.idleTimeout);
       this.idleTimeout = null;
@@ -694,14 +944,7 @@ export class LiveNewsPanel extends Panel {
       document.removeEventListener(event, this.boundIdleResetHandler);
     });
 
-    if (this.player) {
-      this.player.destroy();
-      this.player = null;
-    }
-    this.desktopEmbedIframe = null;
-    this.isPlayerReady = false;
     this.playerContainer = null;
-    this.playerElement = null;
 
     super.destroy();
   }
