@@ -9,7 +9,7 @@ import { getTheaterPostureSummaries } from '@/services/military-surge';
 import { isMobileDevice } from '@/utils';
 import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { SITE_VARIANT } from '@/config';
-import { getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
+import { deletePersistentCache, getPersistentCache, setPersistentCache } from '@/services/persistent-cache';
 import { t } from '@/services/i18n';
 import { isDesktopRuntime } from '@/services/runtime';
 import { AiFlowPopup } from './AiFlowPopup';
@@ -51,7 +51,9 @@ export class InsightsPanel extends Panel {
       if (headerLeft) {
         headerLeft.appendChild(this.aiFlowPopup.wrapper);
       }
-      this.aiFlowUnsubscribe = subscribeAiFlowChange(() => this.onAiFlowChanged());
+      this.aiFlowUnsubscribe = subscribeAiFlowChange(() => {
+        void this.onAiFlowChanged();
+      });
     }
   }
 
@@ -683,17 +685,30 @@ export class InsightsPanel extends Panel {
     `);
   }
 
-  private onAiFlowChanged(): void {
+  private async onAiFlowChanged(): Promise<void> {
     this.updateGeneration++;
     // Reset brief cache so new provider settings take effect immediately
     this.cachedBrief = null;
     this.lastBriefUpdate = 0;
-    if (isAnyAiProviderEnabled() && this.lastClusters.length > 0) {
-      void this.updateInsights(this.lastClusters);
-    } else {
+    try {
+      await deletePersistentCache(InsightsPanel.BRIEF_CACHE_KEY);
+    } catch {
+      // Best effort; fallback regeneration still works from memory reset.
+    }
+
+    if (!isAnyAiProviderEnabled()) {
       this.setDataBadge('unavailable');
       this.renderDisabledState();
+      return;
     }
+
+    if (this.lastClusters.length > 0) {
+      void this.updateInsights(this.lastClusters);
+      return;
+    }
+
+    this.setDataBadge('unavailable');
+    this.setContent(`<div class="insights-empty">${t('components.insights.waitingForData')}</div>`);
   }
 
   public override destroy(): void {
