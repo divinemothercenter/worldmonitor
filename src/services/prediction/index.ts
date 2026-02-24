@@ -43,7 +43,7 @@ const RAILWAY_POLY_URL = wsRelayUrl
   ? wsRelayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '') + '/polymarket'
   : '';
 
-const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket' });
+const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket', cacheTtlMs: 5 * 60 * 1000, persistCache: true });
 
 // Sebuf client for strategy 4
 const client = new PredictionServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
