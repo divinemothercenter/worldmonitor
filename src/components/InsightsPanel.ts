@@ -685,6 +685,9 @@ export class InsightsPanel extends Panel {
 
   private onAiFlowChanged(): void {
     this.updateGeneration++;
+    // Reset brief cache so new provider settings take effect immediately
+    this.cachedBrief = null;
+    this.lastBriefUpdate = 0;
     if (isAnyAiProviderEnabled() && this.lastClusters.length > 0) {
       void this.updateInsights(this.lastClusters);
     } else {
