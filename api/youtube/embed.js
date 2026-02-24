@@ -79,8 +79,26 @@ export default async function handler(request) {
     var tag=document.createElement('script');
     tag.src='https://www.youtube.com/iframe_api';
     document.head.appendChild(tag);
-    var player,overlay=document.getElementById('play-overlay'),started=false;
+    var player,overlay=document.getElementById('play-overlay'),started=false,muteSyncIntervalId;
     function hideOverlay(){overlay.classList.add('hidden')}
+    function readMuted(){
+      if(!player)return null;
+      if(typeof player.isMuted==='function')return player.isMuted();
+      if(typeof player.getVolume==='function')return player.getVolume()===0;
+      return null;
+    }
+    function stopMuteSync(){
+      if(muteSyncIntervalId){clearInterval(muteSyncIntervalId);muteSyncIntervalId=null}
+    }
+    function startMuteSync(){
+      if(muteSyncIntervalId)return;
+      var lastMuted=readMuted();
+      if(lastMuted!==null)window.parent.postMessage({type:'yt-mute-state',muted:lastMuted},'*');
+      muteSyncIntervalId=setInterval(function(){
+        var m=readMuted();
+        if(m!==null&&m!==lastMuted){lastMuted=m;window.parent.postMessage({type:'yt-mute-state',muted:m},'*')}
+      },500);
+    }
     function onYouTubeIframeAPIReady(){
       player=new YT.Player('player',{
         videoId:'${videoId}',
@@ -90,8 +108,9 @@ export default async function handler(request) {
           onReady:function(){
             window.parent.postMessage({type:'yt-ready'},'*');
             if(${autoplay}===1){player.playVideo()}
+            startMuteSync();
           },
-          onError:function(e){window.parent.postMessage({type:'yt-error',code:e.data},'*')},
+          onError:function(e){stopMuteSync();window.parent.postMessage({type:'yt-error',code:e.data},'*')},
           onStateChange:function(e){
             window.parent.postMessage({type:'yt-state',state:e.data},'*');
             if(e.data===1||e.data===3){hideOverlay();started=true}
