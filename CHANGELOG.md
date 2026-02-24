@@ -2,6 +2,34 @@
 
 All notable changes to World Monitor are documented here.
 
+## [2.5.7] - 2026-02-24
+
+### Added
+
+- **Optional live channels** — 35 YouTube news channels across 5 regions (NA, Europe, Latin America, Asia, Africa) browsable via tab-based region cards in Manage Channels modal (#295)
+- **Custom channel validation** — validates YouTube handle format and verifies channel exists on YouTube before adding; shows "Verifying…" state with red border on failure (#302)
+- **Country brief PDF export** — "Export PDF" option in country brief dropdown using scoped print dialog (#306)
+- **Country brief i18n keys** — added missing levels, trends, and fallback keys to el/th/vi locales (#306)
+
+### Fixed
+
+- **Embed postMessage security** — block wildcard `parentOrigin` from query params, validate `e.origin` on incoming message commands, separate YouTube IFrame API origin from Tauri parent origin (#302)
+- **Cloudflare challenge detection** — require 2+ specific markers instead of broad single-marker match; prevent legitimate provider 403s from being soft-passed (#302)
+- **Greek flag in language selector** — added `el: 'gr'` mapping (language code ≠ country code) (#305)
+- **YouTube mute sync** — sync live panel mute state with native player controls (#285)
+- **Ollama reasoning tokens** — strip `<think>` tags and plain-text thinking from summaries (#299)
+- **External links on Tauri desktop** — open in system browser instead of trapping in WebView (#297)
+- **Secret validation User-Agent** — add Chrome UA and Cloudflare 403 detection to all validation probes (#296)
+
+### Performance
+
+- **Infrastructure cost optimizations** — polling intervals, cache TTLs, ACLED dedup, military bbox filtering (#283, #284, #275)
+- **Circuit breaker persistent cache** — safety fixes for concurrent access (#281)
+- **Stale service refresh** — immediately refresh when tab regains focus (#277)
+- **Live channels window** — increased window size to fit channel grid (#301)
+
+---
+
 ## [2.5.6] - 2026-02-23
 
 ### Added
