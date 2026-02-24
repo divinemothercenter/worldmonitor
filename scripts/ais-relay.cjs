@@ -1136,11 +1136,12 @@ async function getOpenSkyToken() {
     return openskyTokenPromise;
   }
 
-  openskyTokenPromise = _fetchOpenSkyToken(clientId, clientSecret);
+  const myPromise = _fetchOpenSkyToken(clientId, clientSecret);
+  openskyTokenPromise = myPromise;
   try {
-    return await openskyTokenPromise;
+    return await myPromise;
   } finally {
-    openskyTokenPromise = null;
+    if (openskyTokenPromise === myPromise) openskyTokenPromise = null;
   }
 }
 
@@ -1213,6 +1214,10 @@ async function _fetchOpenSkyToken(clientId, clientSecret) {
         return openskyToken;
       }
       console.error(`[Relay] OpenSky auth attempt ${attempt + 1} failed:`, result.error, result.status ? `(HTTP ${result.status})` : '');
+      if (result.status === 401 || result.status === 400 || result.status === 403) {
+        console.error('[Relay] OpenSky credential error — skipping retries');
+        break;
+      }
     }
 
     openskyAuthCooldownUntil = Date.now() + OPENSKY_AUTH_COOLDOWN_MS;
