@@ -878,6 +878,7 @@ export default defineConfig({
   server: {
     port: 3000,
     open: !isE2E,
+    allowedHosts: true,
     hmr: isE2E ? false : undefined,
     watch: {
       ignored: [

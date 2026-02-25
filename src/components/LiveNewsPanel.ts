@@ -35,10 +35,26 @@ type YouTubeNamespace = {
   Player: YouTubePlayerConstructor;
 };
 
+// hls.js types (loaded via CDN)
+type HlsInstance = {
+  loadSource(url: string): void;
+  attachMedia(video: HTMLVideoElement): void;
+  destroy(): void;
+  on(event: string, callback: (...args: unknown[]) => void): void;
+};
+
+type HlsConstructor = new (config?: Record<string, unknown>) => HlsInstance;
+
+type HlsStatic = HlsConstructor & {
+  isSupported(): boolean;
+  Events: Record<string, string>;
+};
+
 declare global {
   interface Window {
     YT?: YouTubeNamespace;
     onYouTubeIframeAPIReady?: () => void;
+    Hls?: HlsStatic;
   }
 }
 
@@ -50,6 +66,7 @@ export interface LiveChannel {
   videoId?: string; // Dynamically fetched live video ID
   isLive?: boolean;
   useFallbackOnly?: boolean; // Skip auto-detection, always use fallback
+  hlsUrl?: string; // Direct HLS stream URL (m3u8) — bypasses YouTube entirely
 }
 
 
@@ -109,6 +126,7 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'vtc-now', name: 'VTC NOW', handle: '@VTCNOW' },
   { id: 'cna-asia', name: 'CNA (NewsAsia)', handle: '@channelnewsasia' },
   { id: 'nhk-world', name: 'NHK World Japan', handle: '@NHKWORLDJAPAN' },
+  { id: 'shirdi-sai', name: 'Shirdi Sai Baba', hlsUrl: 'https://cam3.pc.cdn.bitgravity.com/cam/live/feed006/Saibaba/temple/feed/playlist.m3u8', handle: '' },
   // Africa
   { id: 'africanews', name: 'Africanews', handle: '@africanews' },
   { id: 'channels-tv', name: 'Channels TV', handle: '@channelstv' },
@@ -121,7 +139,7 @@ export const OPTIONAL_CHANNEL_REGIONS: { key: string; labelKey: string; channelI
   { key: 'na', labelKey: 'components.liveNews.regionNorthAmerica', channelIds: ['livenow-fox', 'fox-news', 'newsmax', 'abc-news', 'cbs-news', 'nbc-news'] },
   { key: 'eu', labelKey: 'components.liveNews.regionEurope', channelIds: ['welt', 'rtve', 'trt-haber', 'ntv-turkey', 'cnn-turk', 'tv-rain'] },
   { key: 'latam', labelKey: 'components.liveNews.regionLatinAmerica', channelIds: ['cnn-brasil', 'jovem-pan', 'record-news', 'band-jornalismo', 'tn-argentina', 'c5n', 'milenio', 'noticias-caracol', 'ntn24', 't13'] },
-  { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'vtc-now', 'cna-asia', 'nhk-world'] },
+  { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'vtc-now', 'cna-asia', 'nhk-world', 'shirdi-sai'] },
   { key: 'africa', labelKey: 'components.liveNews.regionAfrica', channelIds: ['africanews', 'channels-tv', 'ktn-news', 'enca', 'sabc-news'] },
 ];
 
@@ -188,6 +206,7 @@ export function saveChannelsToStorage(channels: LiveChannel[]): void {
 
 export class LiveNewsPanel extends Panel {
   private static apiPromise: Promise<void> | null = null;
+  private static hlsApiPromise: Promise<void> | null = null;
   private channels: LiveChannel[] = [];
   private activeChannel!: LiveChannel;
   private channelSwitcher: HTMLElement | null = null;
@@ -229,6 +248,10 @@ export class LiveNewsPanel extends Panel {
   private deferredInit = false;
   private lazyObserver: IntersectionObserver | null = null;
   private idleCallbackId: number | ReturnType<typeof setTimeout> | null = null;
+
+  // HLS player state (hls.js for m3u8 streams)
+  private hlsInstance: HlsInstance | null = null;
+  private hlsVideoElement: HTMLVideoElement | null = null;
 
   constructor() {
     super({ id: 'live-news', title: t('panels.liveNews') });
@@ -432,6 +455,7 @@ export class LiveNewsPanel extends Panel {
   private destroyPlayer(): void {
     this.clearBotCheckTimeout();
     this.stopMuteSyncPolling();
+    this.destroyHlsPlayer();
     if (this.player) {
       this.player.destroy();
       this.player = null;
@@ -491,7 +515,7 @@ export class LiveNewsPanel extends Panel {
     this.isPlaying = !this.isPlaying;
     this.wasPlayingBeforeIdle = this.isPlaying;
     this.updateLiveIndicator();
-    if (this.isPlaying && !this.player && !this.desktopEmbedIframe) {
+    if (this.isPlaying && !this.player && !this.desktopEmbedIframe && !this.hlsVideoElement) {
       this.ensurePlayerContainer();
       void this.initializePlayer();
     } else {
@@ -684,6 +708,7 @@ export class LiveNewsPanel extends Panel {
   }
 
   private async resolveChannelVideo(channel: LiveChannel, forceFallback = false): Promise<void> {
+    if (channel.hlsUrl) return;
     const useFallbackVideo = channel.useFallbackOnly || forceFallback;
     const liveVideoId = useFallbackVideo ? null : await fetchLiveVideoId(channel.handle);
     channel.videoId = liveVideoId || channel.fallbackVideoId;
@@ -693,7 +718,9 @@ export class LiveNewsPanel extends Panel {
   private async switchChannel(channel: LiveChannel): Promise<void> {
     if (channel.id === this.activeChannel.id) return;
 
+    const wasHls = !!this.activeChannel.hlsUrl;
     this.activeChannel = channel;
+    const isHls = !!channel.hlsUrl;
 
     this.channelSwitcher?.querySelectorAll('.live-channel-btn').forEach(btn => {
       const btnEl = btn as HTMLElement;
@@ -702,6 +729,17 @@ export class LiveNewsPanel extends Panel {
         btnEl.classList.add('loading');
       }
     });
+
+    // Crossing player types or HLS→HLS — tear down and reinitialize
+    if (wasHls !== isHls || isHls) {
+      if (wasHls) this.destroyHlsPlayer(); else this.destroyPlayer();
+      this.ensurePlayerContainer();
+      void this.initializePlayer();
+      this.channelSwitcher?.querySelectorAll('.live-channel-btn').forEach(btn => {
+        (btn as HTMLElement).classList.remove('loading');
+      });
+      return;
+    }
 
     await this.resolveChannelVideo(channel);
 
@@ -921,7 +959,89 @@ export class LiveNewsPanel extends Panel {
     return LiveNewsPanel.apiPromise;
   }
 
+  private static loadHlsApi(): Promise<void> {
+    if (LiveNewsPanel.hlsApiPromise) return LiveNewsPanel.hlsApiPromise;
+
+    LiveNewsPanel.hlsApiPromise = new Promise((resolve) => {
+      if (window.Hls) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js';
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        console.warn('[LiveNews] hls.js failed to load');
+        LiveNewsPanel.hlsApiPromise = null;
+        script.remove();
+        resolve();
+      };
+      document.head.appendChild(script);
+    });
+
+    return LiveNewsPanel.hlsApiPromise;
+  }
+
+  private async initializeHlsPlayer(): Promise<void> {
+    const hlsUrl = this.activeChannel.hlsUrl;
+    if (!hlsUrl) return;
+
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = this.isPlaying;
+    this.hlsVideoElement = video;
+    this.isMuted = true;
+    this.updateMuteIcon();
+    this.playerContainer?.appendChild(video);
+
+    // Try native HLS first (Safari, iOS) — no library needed
+    const canPlayNative = video.canPlayType('application/vnd.apple.mpegurl');
+    if (canPlayNative) {
+      video.src = hlsUrl;
+      this.isPlayerReady = true;
+      if (this.isPlaying) video.play().catch(() => {});
+      return;
+    }
+
+    // Fall back to hls.js (Chrome, Firefox, etc.)
+    await LiveNewsPanel.loadHlsApi();
+    if (!window.Hls?.isSupported()) return;
+
+    const hls = new window.Hls();
+    this.hlsInstance = hls;
+    hls.loadSource(hlsUrl);
+    hls.attachMedia(video);
+    hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+      this.isPlayerReady = true;
+      if (this.isPlaying) video.play().catch(() => {});
+    });
+  }
+
+  private destroyHlsPlayer(): void {
+    if (this.hlsInstance) {
+      this.hlsInstance.destroy();
+      this.hlsInstance = null;
+    }
+    if (this.hlsVideoElement) {
+      this.hlsVideoElement.pause();
+      this.hlsVideoElement.removeAttribute('src');
+      this.hlsVideoElement.load();
+      this.hlsVideoElement.remove();
+      this.hlsVideoElement = null;
+    }
+  }
+
   private async initializePlayer(): Promise<void> {
+    // HLS stream — skip YouTube entirely
+    if (this.activeChannel.hlsUrl) {
+      if (this.hlsInstance || this.hlsVideoElement) return;
+      await this.initializeHlsPlayer();
+      return;
+    }
+
     if (!this.useDesktopEmbedProxy && this.player) return;
 
     const useFallbackVideo = this.activeChannel.useFallbackOnly || this.forceFallbackVideoForNextInit;
@@ -1086,6 +1206,17 @@ export class LiveNewsPanel extends Panel {
   }
 
   private syncPlayerState(): void {
+    // HLS player — sync mute/play on the <video> element
+    if (this.hlsVideoElement) {
+      this.hlsVideoElement.muted = this.isMuted;
+      if (this.isPlaying) {
+        this.hlsVideoElement.play().catch(() => {});
+      } else {
+        this.hlsVideoElement.pause();
+      }
+      return;
+    }
+
     if (this.useDesktopEmbedProxy) {
       const videoId = this.activeChannel.videoId;
       if (videoId && this.currentVideoId !== videoId) {
